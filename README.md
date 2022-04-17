@@ -11,7 +11,7 @@ What if there was a tool that scrubs the pcap clean of all that noise and produc
 ## What it does
 The filtering mechanism of the tool is centered around the most common question:
 
-*Why is it slow?**
+*Why is it slow?*
 
 The tool reads a large pcap file and analyzes every TCP connection for three things:
 1. Wire latency
