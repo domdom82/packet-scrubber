@@ -14,7 +14,7 @@ The filtering mechanism of the tool is centered around the most common question:
 *Why is it slow?*
 
 The tool reads a large pcap file and analyzes every TCP connection for three things:
-1. Wire latency
+1. Network latency
 2. Server latency
 3. Client latency
 
