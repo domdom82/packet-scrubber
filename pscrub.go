@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/domdom82/pcap-scrubber/ports"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -100,7 +101,7 @@ func NewCapture() *Capture {
 }
 
 func main() {
-	portsDb, err := NewIanaDB("service-names-port-numbers.csv")
+	portsDb, err := ports.NewIanaDB("data/service-names-port-numbers.csv")
 	if err != nil {
 		panic(err)
 	}
@@ -155,12 +156,12 @@ func main() {
 // 2. if source is non-routable, check the port
 // 3. if the port is ephemeral, return false
 // 4. else return true
-func isPacketFromRemote(portsDb *IanaDB, packet *ShallowPacket) bool {
+func isPacketFromRemote(portsDb *ports.IanaDB, packet *ShallowPacket) bool {
 	if !packet.ip.SrcIP.IsPrivate() {
 		return true
 	}
 
-	if portsDb.isPortEphemeral(packet.tcp.SrcPort) {
+	if portsDb.IsPortEphemeral(int(packet.tcp.SrcPort), ports.TCP) {
 		return false
 	}
 

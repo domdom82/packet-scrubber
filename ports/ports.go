@@ -1,17 +1,19 @@
-package main
+package ports
 
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/google/gopacket/layers"
 	"os"
 	"regexp"
 	"strconv"
 )
 
+const TCP = "tcp"
+const UDP = "udp"
+
 type ianaEntry struct {
 	ServiceName             string
-	PortNumber              layers.TCPPort
+	PortNumber              int
 	TransportProtocol       string
 	Description             string
 	Assignee                string
@@ -24,12 +26,17 @@ type ianaEntry struct {
 	AssignmentNotes         string
 }
 
+type ianaEntryKey struct {
+	port     int
+	protocol string
+}
+
 type IanaDB struct {
-	registeredPorts map[layers.TCPPort]*ianaEntry
+	registeredPorts map[ianaEntryKey]*ianaEntry
 }
 
 func NewIanaDB(csvFile string) (*IanaDB, error) {
-	db := &IanaDB{map[layers.TCPPort]*ianaEntry{}}
+	db := &IanaDB{map[ianaEntryKey]*ianaEntry{}}
 
 	f, err := os.Open(csvFile)
 	if err != nil {
@@ -61,7 +68,7 @@ func NewIanaDB(csvFile string) (*IanaDB, error) {
 							continue
 						}
 					} else {
-						rec.PortNumber = layers.TCPPort(port)
+						rec.PortNumber = port
 					}
 				case 2:
 					rec.TransportProtocol = field
@@ -87,10 +94,16 @@ func NewIanaDB(csvFile string) (*IanaDB, error) {
 			}
 			if low != 0 && high != 0 {
 				for portNumber := low; portNumber <= high; portNumber++ {
-					db.registeredPorts[layers.TCPPort(portNumber)] = &rec
+					db.registeredPorts[ianaEntryKey{
+						port:     portNumber,
+						protocol: rec.TransportProtocol,
+					}] = &rec
 				}
 			} else {
-				db.registeredPorts[rec.PortNumber] = &rec
+				db.registeredPorts[ianaEntryKey{
+					port:     rec.PortNumber,
+					protocol: rec.TransportProtocol,
+				}] = &rec
 			}
 		}
 	}
@@ -126,15 +139,18 @@ func getPortRange(field string) (low, high int, err error) {
 	return low, high, nil
 }
 
-// isPortEphemeral returns true if the port
+// IsPortEphemeral returns true if the port
 // 1. is not well-known
 // 2. is not a registered port as per IANA assignment
 // https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.txt
-func (db *IanaDB) isPortEphemeral(port layers.TCPPort) bool {
+func (db *IanaDB) IsPortEphemeral(port int, transportProto string) bool {
 	if port <= 1024 {
 		return false
 	}
-	if db.registeredPorts[port] != nil {
+	if db.registeredPorts[ianaEntryKey{
+		port:     port,
+		protocol: transportProto,
+	}] != nil {
 		return false
 	}
 	return true
