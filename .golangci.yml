@@ -8,3 +8,5 @@ linters:
     - forbidigo
     - gofumpt
     - goimports
+    - gomnd
+    - wsl

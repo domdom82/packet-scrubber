@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-const DefaultConversationLength = 10
-
 type Statistics struct {
 	histogram    map[time.Duration]int
 	percentile10 time.Duration
@@ -81,7 +79,7 @@ func NewShallowPacket(metaData *gopacket.PacketMetadata, tcp *layers.TCP, ip *la
 
 func NewConversation() *Conversation {
 	conversation := &Conversation{
-		packets:        make([]*ShallowPacket, DefaultConversationLength),
+		packets:        []*ShallowPacket{},
 		networkLatency: NewStatistics(),
 		localLatency:   NewStatistics(),
 		remoteLatency:  NewStatistics(),
@@ -102,6 +100,11 @@ func NewCapture() *Capture {
 }
 
 func main() {
+	portsDb, err := NewIanaDB("service-names-port-numbers.csv")
+	if err != nil {
+		panic(err)
+	}
+
 	handle, err := pcap.OpenOffline("example.pcap")
 	if err != nil {
 		panic(err)
@@ -130,5 +133,40 @@ func main() {
 		}
 	}
 
+	// 2. Collect network latency
+	// Walk over each conversation
+	// Find out who is local, who is remote
+	// We are interested in empty ACKs from remote
+	for _, conv := range capture.conversations {
+		for _, packet := range conv.packets {
+			if isPacketFromRemote(portsDb, packet) {
+				fmt.Println("Found remote packet:")
+				fmt.Println(packet)
+			}
+		}
+	}
+
 	fmt.Println(len(capture.conversations))
+}
+
+// isRemote applies the following heuristics to determine whether a packet
+// was sent by the remote party or not:
+// 1. if the source is a routable IP, return true
+// 2. if source is non-routable, check the port
+// 3. if the port is ephemeral, return false
+// 4. else return true
+func isPacketFromRemote(portsDb *IanaDB, packet *ShallowPacket) bool {
+	if !packet.ip.SrcIP.IsPrivate() {
+		return true
+	}
+
+	if portsDb.isPortEphemeral(packet.tcp.SrcPort) {
+		return false
+	}
+
+	return true
+}
+
+func (sp *ShallowPacket) String() string {
+	return fmt.Sprintf("%s:%d -> %s:%d", sp.ip.SrcIP, sp.tcp.SrcPort, sp.ip.DstIP, sp.tcp.DstPort)
 }
